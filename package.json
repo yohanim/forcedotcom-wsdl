@@ -16,6 +16,7 @@
   "scripts": {
     "generate": "ts-node scripts/generate.ts",
     "lint": "eslint src --color --cache --cache-location .eslintcache --fix",
+    "mergerTypes": "ts-node scripts/mergerTypes.ts",
     "prepack": "sf-prepack",
     "build": "tsc -p . --pretty",
     "test": "mocha test/**/*.test.ts"
