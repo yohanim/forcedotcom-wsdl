@@ -6,6 +6,16 @@
  */
 import * as fs from 'node:fs';
 import { parseString } from 'xml2js';
+import {
+  ComplexTypeNode,
+  ComplexTypeNodeWithComplexContent,
+  ComplexTypeNodeWithSequence,
+  DefinitionsNode,
+  ElementNode,
+  NodeWithAttributes,
+  SequenceNode,
+  SimpleTypeNode,
+} from './types';
 
 const reservedWords = [
   'abstract',
@@ -73,64 +83,6 @@ const reservedWords = [
   'with',
   'yield',
 ];
-
-type Properties = Record<string, string>;
-
-type Node = {
-  $?: Properties;
-};
-
-type NodeWithAttributes = {
-  $: Properties;
-} & Node;
-
-type SequenceNode = {
-  element: NodeWithAttributes[] | NodeWithAttributes;
-} & NodeWithAttributes;
-
-type ExtensionNode = {
-  sequence: SequenceNode;
-} & NodeWithAttributes;
-
-type ComplexContentNode = {
-  extension: ExtensionNode;
-} & Node;
-
-type ComplexTypeNode = Record<string, unknown> & Node;
-
-type ComplexTypeNodeWithSequence = {
-  sequence?: SequenceNode;
-} & ComplexTypeNode;
-
-type ComplexTypeNodeWithComplexContent = {
-  complexContent: ComplexContentNode;
-} & ComplexTypeNode;
-
-type RestrictionNode = {
-  enumeration: NodeWithAttributes[] | NodeWithAttributes;
-} & NodeWithAttributes;
-
-type SimpleTypeNode = {
-  restriction: RestrictionNode;
-} & NodeWithAttributes;
-
-type ElementNode = {
-  complexType: ComplexTypeNodeWithSequence;
-} & NodeWithAttributes;
-
-type SchemaNode = {
-  complexType: ComplexTypeNode[] | ComplexTypeNode;
-  simpleType: SimpleTypeNode[] | SimpleTypeNode;
-  element: ElementNode[] | ElementNode;
-} & NodeWithAttributes;
-
-type TypesNode = {
-  schema: SchemaNode | SchemaNode[];
-} & Node;
-
-type DefinitionsNode = {
-  types: TypesNode;
-} & NodeWithAttributes;
 
 const wsdlFolder = './resources';
 const outputFolder = './src';
