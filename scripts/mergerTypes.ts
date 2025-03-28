@@ -136,8 +136,8 @@ const wsdlFolder = './resources';
 const outputFolder = './src';
 const wsdlFile = 'metadata.wsdl'
 
-const wsdl = fs.readFileSync(`${wsdlFolder}/${wsdlFile}`, 'utf-8');
-const map = convertWsdlToMap(wsdl);
+const wsdlContent = fs.readFileSync(`${wsdlFolder}/${wsdlFile}`, 'utf-8');
+const map = convertWsdlToMap(wsdlContent);
 const meta = writeTypeMap(filterMetadataTypesOnly(map))
 const header = '/*\n'
   + ' * Copyright (c) 2023, salesforce.com, inc.\n'
@@ -174,9 +174,11 @@ function filterMetadataTypesOnly(
         }
       })
   } while (actualFilterMapSize !== filteredMapWithOnlyMetadataTypes.size);
-  // Get only 1 type
-  // const getType = 'CustomObjectTranslation'
-  // filteredMapWithOnlyMetadataTypes.set(getType, typeMap.get(getType) ?? { parents: [], fields: [] })
+  // Get only types needed for merge driver
+  // const arrTypes = ['CustomLabels', 'Profile', 'PermissionSet', 'PermissionSetGroup', 'PermissionSetLicenseDefinition', 'MutingPermissionSet', 'SharingRules', 'Workflow', 'AssignmentRules', 'AutoResponseRules', 'EscalationRules', 'MarketingAppExtension', 'MatchingRules', 'GlobalValueSet', 'StandardValueSet', 'GlobalValueSetTranslation', 'StandardValueSetTranslation', 'Translations', 'CustomObjectTranslation']
+  // for (const key in arrTypes) {
+  //   filteredMapWithOnlyMetadataTypes.set(key, typeMap.get(key) ?? { parents: [], fields: [] })
+  // }
 
   do {
     actualFilterMapSize = filteredMapWithOnlyMetadataTypes.size
