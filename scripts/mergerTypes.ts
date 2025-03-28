@@ -7,6 +7,131 @@
 import * as fs from 'node:fs';
 import { parseString } from 'xml2js';
 
+const reservedWords = [
+  'abstract',
+  'arguments',
+  'await',
+  'boolean',
+  'break',
+  'byte',
+  'case',
+  'catch',
+  'char',
+  'class',
+  'const',
+  'continue',
+  'debugger',
+  'default',
+  'delete',
+  'do',
+  'double',
+  'else',
+  'enum',
+  'eval',
+  'export',
+  'extends',
+  'false',
+  'final',
+  'finally',
+  'float',
+  'for',
+  'function',
+  'goto',
+  'if',
+  'implements',
+  'import',
+  'in',
+  'instanceof',
+  'int',
+  'interface',
+  'let',
+  'long',
+  'native',
+  'new',
+  'null',
+  'package',
+  'private',
+  'protected',
+  'public',
+  'return',
+  'short',
+  'static',
+  'super',
+  'switch',
+  'synchronized',
+  'this',
+  'throw',
+  'throws',
+  'transient',
+  'true',
+  'try',
+  'typeof',
+  'var',
+  'void',
+  'volatile',
+  'while',
+  'with',
+  'yield',
+];
+
+type Properties = Record<string, string>;
+
+type Node = {
+  $?: Properties;
+};
+
+type NodeWithAttributes = {
+  $: Properties;
+} & Node;
+
+type SequenceNode = {
+  element: NodeWithAttributes[] | NodeWithAttributes;
+} & NodeWithAttributes;
+
+type ExtensionNode = {
+  sequence: SequenceNode;
+} & NodeWithAttributes;
+
+type ComplexContentNode = {
+  extension: ExtensionNode;
+} & Node;
+
+type ComplexTypeNode = Record<string, unknown> & Node;
+
+type ComplexTypeNodeWithSequence = {
+  sequence?: SequenceNode;
+} & ComplexTypeNode;
+
+type ComplexTypeNodeWithComplexContent = {
+  complexContent: ComplexContentNode;
+} & ComplexTypeNode;
+
+type RestrictionNode = {
+  enumeration: NodeWithAttributes[] | NodeWithAttributes;
+} & NodeWithAttributes;
+
+type SimpleTypeNode = {
+  restriction: RestrictionNode;
+} & NodeWithAttributes;
+
+type ElementNode = {
+  complexType: ComplexTypeNodeWithSequence;
+} & NodeWithAttributes;
+
+type SchemaNode = {
+  complexType: ComplexTypeNode[] | ComplexTypeNode;
+  simpleType: SimpleTypeNode[] | SimpleTypeNode;
+  element: ElementNode[] | ElementNode;
+} & NodeWithAttributes;
+
+type TypesNode = {
+  schema: SchemaNode | SchemaNode[];
+} & Node;
+
+type DefinitionsNode = {
+  types: TypesNode;
+} & NodeWithAttributes;
+
 const wsdlFolder = './resources';
 const outputFolder = './src';
 const wsdlFile = 'metadata.wsdl'
@@ -29,10 +154,10 @@ function filterMetadataTypesOnly(
   let actualFilterMapSize: number = 0
 
   // Initialize with top which is Metadata
-  filteredMapWithOnlyMetadataTypes.set('Metadata', JSON.parse(JSON.stringify(typeMap.get('Metadata'))) ?? { parents: [], fields: [] })
+  filteredMapWithOnlyMetadataTypes.set('Metadata', typeMap.get('Metadata') ?? { parents: [], fields: [] })
   // Construct a Map of types which have parents
   const filteredMapWithParents = new Map(Array.from(typeMap).filter(([, value]) => value.parents.length))
-  // Construct list of types names which a string or enum
+  // Construct list of types names which are string or enum
   const listTypesThatAreString: string[] = []
   typeMap.forEach((value, key) => {
     if (value.fields.every((f) => 'value' in f.$) && !value.parents.length) {
@@ -49,20 +174,24 @@ function filterMetadataTypesOnly(
         }
       })
   } while (actualFilterMapSize !== filteredMapWithOnlyMetadataTypes.size);
+  // Get only 1 type
+  // const getType = 'CustomObjectTranslation'
+  // filteredMapWithOnlyMetadataTypes.set(getType, typeMap.get(getType) ?? { parents: [], fields: [] })
+
   do {
     actualFilterMapSize = filteredMapWithOnlyMetadataTypes.size
     filteredMapWithOnlyMetadataTypes.forEach((value) => {
         value.parents.forEach((val) => {
           const typ = translateTypeName(val)
           if (!listTypesThatAreString.includes(typ) && !filteredMapWithOnlyMetadataTypes.has(typ) && typeMap.has(typ)) {
-            filteredMapWithOnlyMetadataTypes.set(typ, JSON.parse(JSON.stringify(typeMap.get(typ))))
+            filteredMapWithOnlyMetadataTypes.set(typ, typeMap.get(typ) ?? { parents: [], fields: [] })
           }
         })
         value.fields.filter((val) => val.$.type)
           .forEach((el) => {
             const typ = translateTypeName(el.$.type)
             if (!listTypesThatAreString.includes(typ) && !filteredMapWithOnlyMetadataTypes.has(typ) && typeMap.has(typ)) {
-              filteredMapWithOnlyMetadataTypes.set(typ, JSON.parse(JSON.stringify(typeMap.get(typ))))
+              filteredMapWithOnlyMetadataTypes.set(typ, typeMap.get(typ) ?? { parents: [], fields: [] })
             }
           })
       })
@@ -70,7 +199,7 @@ function filterMetadataTypesOnly(
 
   filteredMapWithOnlyMetadataTypes.forEach((value) => {
     // eslint-disable-next-line no-param-reassign
-    value.parents = value.parents.filter((el) => !!listTypesThatAreString.includes(el))
+    value.parents = value.parents.filter((el) => !listTypesThatAreString.includes(translateTypeName(el)))
     value.fields.forEach((val) => {
       const typ = translateTypeName(val.$.type)
       if (listTypesThatAreString.includes(typ)) {
@@ -82,10 +211,10 @@ function filterMetadataTypesOnly(
     })
   })
 
-  filteredMapWithOnlyMetadataTypes.delete('string')
-  filteredMapWithOnlyMetadataTypes.delete('boolean')
-  filteredMapWithOnlyMetadataTypes.delete('number')
-  filteredMapWithOnlyMetadataTypes.delete('any')
+  // filteredMapWithOnlyMetadataTypes.delete('string')
+  // filteredMapWithOnlyMetadataTypes.delete('boolean')
+  // filteredMapWithOnlyMetadataTypes.delete('number')
+  // filteredMapWithOnlyMetadataTypes.delete('any')
 
   return filteredMapWithOnlyMetadataTypes
 }
@@ -200,73 +329,6 @@ function treatTypeName(s: string): string {
 
   return str;
 }
-
-const reservedWords = [
-  'abstract',
-  'arguments',
-  'await',
-  'boolean',
-  'break',
-  'byte',
-  'case',
-  'catch',
-  'char',
-  'class',
-  'const',
-  'continue',
-  'debugger',
-  'default',
-  'delete',
-  'do',
-  'double',
-  'else',
-  'enum',
-  'eval',
-  'export',
-  'extends',
-  'false',
-  'final',
-  'finally',
-  'float',
-  'for',
-  'function',
-  'goto',
-  'if',
-  'implements',
-  'import',
-  'in',
-  'instanceof',
-  'int',
-  'interface',
-  'let',
-  'long',
-  'native',
-  'new',
-  'null',
-  'package',
-  'private',
-  'protected',
-  'public',
-  'return',
-  'short',
-  'static',
-  'super',
-  'switch',
-  'synchronized',
-  'this',
-  'throw',
-  'throws',
-  'transient',
-  'true',
-  'try',
-  'typeof',
-  'var',
-  'void',
-  'volatile',
-  'while',
-  'with',
-  'yield',
-];
 
 function treatAttribute(elementNode: NodeWithAttributes): string {
   let attributeOutput = '';
@@ -393,61 +455,3 @@ function toArray<Type>(input: Type | Type[] | undefined): Type[] {
 
   return Array.isArray(input) ? input : [input];
 }
-
-type Properties = Record<string, string>;
-
-type Node = {
-  $?: Properties;
-};
-
-type NodeWithAttributes = {
-  $: Properties;
-} & Node;
-
-type SequenceNode = {
-  element: NodeWithAttributes[] | NodeWithAttributes;
-} & NodeWithAttributes;
-
-type ExtensionNode = {
-  sequence: SequenceNode;
-} & NodeWithAttributes;
-
-type ComplexContentNode = {
-  extension: ExtensionNode;
-} & Node;
-
-type ComplexTypeNode = Record<string, unknown> & Node;
-
-type ComplexTypeNodeWithSequence = {
-  sequence?: SequenceNode;
-} & ComplexTypeNode;
-
-type ComplexTypeNodeWithComplexContent = {
-  complexContent: ComplexContentNode;
-} & ComplexTypeNode;
-
-type RestrictionNode = {
-  enumeration: NodeWithAttributes[] | NodeWithAttributes;
-} & NodeWithAttributes;
-
-type SimpleTypeNode = {
-  restriction: RestrictionNode;
-} & NodeWithAttributes;
-
-type ElementNode = {
-  complexType: ComplexTypeNodeWithSequence;
-} & NodeWithAttributes;
-
-type SchemaNode = {
-  complexType: ComplexTypeNode[] | ComplexTypeNode;
-  simpleType: SimpleTypeNode[] | SimpleTypeNode;
-  element: ElementNode[] | ElementNode;
-} & NodeWithAttributes;
-
-type TypesNode = {
-  schema: SchemaNode | SchemaNode[];
-} & Node;
-
-type DefinitionsNode = {
-  types: TypesNode;
-} & NodeWithAttributes;
